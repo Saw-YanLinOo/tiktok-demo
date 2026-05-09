@@ -51,10 +51,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (next != 0) {
         // Left Home tab → pause
         controller.pause();
-      } else {
-        // Returned to Home tab → resume
-        controller.play();
       }
+      // Returning to Home: leave video paused — user taps to resume.
     });
     // ────────────────────────────────────────────────────────────────────────
 

@@ -1,27 +1,28 @@
+import 'dart:async';
+
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/video_cache_service.dart';
+import '../services/video_preload_service.dart';
 import 'feed_provider.dart';
 
 /// TikTok-style ±2 preload window — 5 controllers max in memory at once:
 ///
-///   N-2  cached on disk, controller alive  (instant back-scroll)
-///   N-1  cached on disk, controller alive  (instant back-scroll)
+///   N-2  chunk cached, controller alive   (instant back-scroll)
+///   N-1  chunk cached, controller alive   (instant back-scroll)
 ///   N    PLAYING
-///   N+1  fully initialized, paused         (zero-wait forward swipe)
-///   N+2  downloading + initializing        (ready before user arrives)
+///   N+1  fully initialised, paused        (zero-wait forward swipe)
+///   N+2  metadata + chunk downloading     (ready before user arrives)
 ///
-/// Each controller is a [CachedVideoPlayerPlusController]:
-///   • If [VideoCacheService] already has the file on disk → .file() — instant
-///   • Otherwise → .networkUrl() fallback — streams while caching in background
+/// Two-phase preload per slot:
+///   Phase 1 – HEAD request  → file size, content-type (≈ 0 bytes, warms DNS)
+///   Phase 2 – Range request → first 3 MB ≈ first 3-5 s of video
 ///
-/// The file download runs in a background [Isolate] (pure dart:io) so the
-/// main thread is never blocked by network I/O or byte-level file writes.
+/// Only the first chunk is stored — never the full file — keeping disk light.
 class FeedControllerNotifier
     extends StateNotifier<Map<int, CachedVideoPlayerPlusController>> {
   FeedControllerNotifier(this._ref) : super({}) {
-    // Eagerly warm up indices 0, 1, 2 before the user sees anything.
+    // Eagerly warm up indices 0, 1, 2 before the user sees the first frame.
     _initRange(0);
   }
 
@@ -39,17 +40,23 @@ class FeedControllerNotifier
 
   Future<void> _initRange(int center) async {
     final videos = _ref.read(feedProvider);
-    final indices = [
+
+    final window = [
       center - 2,
       center - 1,
       center,
       center + 1,
       center + 2,
-    ].where((i) => i >= 0 && i < videos.length);
+    ].where((i) => i >= 0 && i < videos.length).toList();
 
-    // Initialise all slots concurrently — N+1 and N+2 warm up while user
-    // is still watching N.
-    await Future.wait(indices.map(_initController));
+    // Phase 1 — fire HEAD requests for every slot in the window concurrently.
+    // These are essentially free (no body download) and warm DNS + TCP.
+    for (final i in window) {
+      unawaited(VideoPreloadService.fetchMetadata(videos[i].videoUrl));
+    }
+
+    // Phase 2 — fetch first chunk + initialise controllers concurrently.
+    await Future.wait(window.map(_initController));
   }
 
   Future<void> _initController(int index) async {
@@ -59,14 +66,16 @@ class FeedControllerNotifier
     try {
       final url = _ref.read(feedProvider)[index].videoUrl;
 
-      // VideoCacheService runs the download in a background Isolate.
-      // If the file is already on disk the Isolate returns immediately.
-      final cachedFile = await VideoCacheService.fetch(url);
+      // Phase 2: download only the first 3 MB (≈ first 3-5 s) via Range request.
+      // Runs in a background Isolate — main thread never blocked.
+      // For faststart MP4s (moov atom at front) → immediately playable.
+      // Returns null if the server doesn't support ranges or download fails.
+      final chunkFile = await VideoPreloadService.fetchFirstChunk(url);
 
-      final controller = cachedFile != null
-          // Cached file path → zero network latency on play
-          ? CachedVideoPlayerPlusController.file(cachedFile)
-          // Fallback: stream directly, package caches for next time
+      final controller = chunkFile != null
+          // Chunk on disk → zero network latency on first play
+          ? CachedVideoPlayerPlusController.file(chunkFile)
+          // Fallback → stream directly; package caches progressively
           : CachedVideoPlayerPlusController.networkUrl(Uri.parse(url));
 
       await controller.initialize();
@@ -74,7 +83,7 @@ class FeedControllerNotifier
 
       if (mounted) state = {...state, index: controller};
     } catch (_) {
-      // Silent fail — VideoCard shows a plain black frame, no crash.
+      // Silent fail — VideoCard shows TikTok loader, no crash.
     } finally {
       _loading.remove(index);
     }

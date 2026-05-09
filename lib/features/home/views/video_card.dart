@@ -58,7 +58,7 @@ class VideoCard extends ConsumerWidget {
 
         // ── Right action column, vertically centered ──
         Positioned(
-          right: 10, top: 0, bottom: 80,
+          right: 10, top: 80, bottom: 80,
           child: Center(child: _RightActions(item: item)),
         ),
 
@@ -327,9 +327,9 @@ class _TopBar extends StatelessWidget {
                   'LIVE',
                   style: TextStyle(
                     color: AppColors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
                   ),
                 ),
               ],
@@ -340,20 +340,21 @@ class _TopBar extends StatelessWidget {
           const Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              // crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Following',
                   style: TextStyle(
                     color: Color(0x99FFFFFF),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  padding: EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     '|',
-                    style: TextStyle(color: Color(0x44FFFFFF), fontSize: 16),
+                    style: TextStyle(color: Color(0x44FFFFFF), fontSize: 20),
                   ),
                 ),
                 _ActiveTab(label: 'For You'),
@@ -362,7 +363,7 @@ class _TopBar extends StatelessWidget {
           ),
 
           // Search icon
-          const Icon(Icons.search, color: AppColors.white, size: 22),
+          const Icon(Icons.search, color: AppColors.white, size: 27),
         ],
       ),
     );
@@ -382,8 +383,8 @@ class _ActiveTab extends StatelessWidget {
           label,
           style: const TextStyle(
             color: AppColors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 2),
@@ -414,7 +415,7 @@ class _RightActions extends StatelessWidget {
       children: [
         // Avatar + follow
         _Avatar(initials: item.initials),
-        const SizedBox(height: 20),
+        const SizedBox(height: 28),
 
         // Like
         _ActionButton(
@@ -422,28 +423,28 @@ class _RightActions extends StatelessWidget {
           label: '2.7w',
           iconColor: AppColors.white,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Comment
         _ActionButton(
           icon: Icons.chat_bubble,
           label: '337',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Bookmark
         _ActionButton(
           icon: Icons.bookmark,
           label: '129',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Share
         _ActionButton(
           icon: Icons.send,
           label: 'Share',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Music disc
         const _MusicDisc(),
@@ -513,22 +514,14 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: iconColor, size: 22),
-        ),
-        const SizedBox(height: 3),
+        Icon(icon, color: iconColor, size: 32),
+        const SizedBox(height: 4),
         Text(
           label,
           style: const TextStyle(
             color: AppColors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -586,6 +579,71 @@ class _MusicDiscState extends State<_MusicDisc>
 }
 
 // ─────────────────────────────────────────────
+// Marquee text — translates by one unit width per cycle, loops seamlessly.
+// Uses TextPainter to measure text width so the speed is consistent
+// regardless of string length.
+// ─────────────────────────────────────────────
+class _MarqueeText extends StatefulWidget {
+  const _MarqueeText({required this.text, required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  State<_MarqueeText> createState() => _MarqueeTextState();
+}
+
+class _MarqueeTextState extends State<_MarqueeText>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 9),
+  )..repeat();
+
+  // Measures a single unit (text + gap) so we know how far to translate.
+  double _unitWidth(String unit) {
+    final tp = TextPainter(
+      text: TextSpan(text: unit, style: widget.style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return tp.width;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = '          '; // visual spacing between repetitions
+    final unit = '${widget.text}$gap';
+    final unitW = _unitWidth(unit);
+
+    return ClipRect(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, child) => Transform.translate(
+          // Slides left by one full unit width per cycle → seamless loop
+          // because the second copy is identical to the first.
+          offset: Offset(-_ctrl.value * unitW, 0),
+          child: child,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(unit, style: widget.style, softWrap: false),
+            Text(unit, style: widget.style, softWrap: false),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
 // Bottom info: username, caption, audio
 // ─────────────────────────────────────────────
 class _BottomInfo extends StatelessWidget {
@@ -603,7 +661,7 @@ class _BottomInfo extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.white,
             fontSize: 14,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 5),
@@ -620,13 +678,12 @@ class _BottomInfo extends StatelessWidget {
         const SizedBox(height: 7),
         Row(
           children: [
-            const Icon(Icons.music_note, color: Color(0xAAFFFFFF), size: 12),
+            const Icon(Icons.music_note, color: Color(0xAAFFFFFF), size: 13),
             const SizedBox(width: 4),
-            Text(
-              item.audioLabel,
-              style: const TextStyle(
-                color: Color(0xAAFFFFFF),
-                fontSize: 11,
+            Expanded(
+              child: _MarqueeText(
+                text: item.audioLabel,
+                style: const TextStyle(color: Color(0xAAFFFFFF), fontSize: 11),
               ),
             ),
           ],

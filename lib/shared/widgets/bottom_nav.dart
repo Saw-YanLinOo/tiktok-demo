@@ -20,7 +20,7 @@ class AppBottomNav extends ConsumerWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 52,
+          height: 58,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -120,8 +120,8 @@ class _NavItem extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
                 color: isActive ? AppColors.white : AppColors.navInactive,
               ),
             ),

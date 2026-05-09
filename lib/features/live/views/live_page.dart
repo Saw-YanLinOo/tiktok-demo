@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,15 +19,29 @@ class LivePage extends ConsumerStatefulWidget {
 }
 
 class _LivePageState extends ConsumerState<LivePage> {
-  final _roomNameController = TextEditingController();
   final _identityController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  late String _roomCode;
+
   bool get _isHost => widget.role == RoomRole.host;
+
+  /// Generates a random room code in the format XXX-XXX (e.g. 847-203).
+  static String _generateRoomCode() {
+    final rng = Random();
+    final a = rng.nextInt(900) + 100; // 100–999
+    final b = rng.nextInt(900) + 100; // 100–999
+    return '$a-$b';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _roomCode = _generateRoomCode();
+  }
 
   @override
   void dispose() {
-    _roomNameController.dispose();
     _identityController.dispose();
     super.dispose();
   }
@@ -34,7 +50,7 @@ class _LivePageState extends ConsumerState<LivePage> {
     if (!_formKey.currentState!.validate()) return;
 
     final config = RoomConfig(
-      roomName: _roomNameController.text.trim(),
+      roomName: _roomCode,
       role: widget.role,
       identity: _identityController.text.trim(),
     );
@@ -113,14 +129,13 @@ class _LivePageState extends ConsumerState<LivePage> {
                 ),
                 const SizedBox(height: 32),
 
-                // Room Name
-                _FieldLabel('Room Name'),
+                // Room Code — auto-generated, read-only
+                _FieldLabel('Room Code'),
                 const SizedBox(height: 8),
-                _TextField(
-                  controller: _roomNameController,
-                  hint: 'e.g. my-live-room',
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Room name required' : null,
+                _RoomCodeDisplay(
+                  code: _roomCode,
+                  onRefresh: () =>
+                      setState(() => _roomCode = _generateRoomCode()),
                 ),
                 const SizedBox(height: 20),
 
@@ -230,6 +245,61 @@ class _LivePageState extends ConsumerState<LivePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Read-only room code display with refresh icon
+// ─────────────────────────────────────────────
+class _RoomCodeDisplay extends StatelessWidget {
+  const _RoomCodeDisplay({required this.code, required this.onRefresh});
+
+  final String code;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.tag_rounded, color: AppColors.textSecondary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              code,
+              style: const TextStyle(
+                color: AppColors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 4,
+              ),
+            ),
+          ),
+          // Regenerate button
+          GestureDetector(
+            onTap: onRefresh,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.refresh_rounded,
+                color: AppColors.accent,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

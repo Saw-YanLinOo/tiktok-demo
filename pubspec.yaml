@@ -30,6 +30,9 @@ dependencies:
   # JWT token generation for LiveKit (on-device, demo only)
   dart_jsonwebtoken: ^3.4.1
 
+  # Font — Nunito (matches TikTok's rounded bold sans-serif style)
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

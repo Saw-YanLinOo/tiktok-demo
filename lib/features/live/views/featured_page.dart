@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/theme/app_theme.dart';
 import '../models/live_stream.dart';
-import '../models/room_config.dart';
+import '../models/room_config.dart'; // used by _LiveBottomSheet → LivePage
 import '../providers/featured_provider.dart';
+import 'live_detail_page.dart';
 import 'live_page.dart';
 
 class FeaturedPage extends ConsumerWidget {
@@ -167,9 +168,8 @@ class _FeaturedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // Tap card → join as viewer
         Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => const LivePage(role: RoomRole.viewer),
+          builder: (_) => LiveDetailPage(stream: stream),
         ));
       },
       child: Container(

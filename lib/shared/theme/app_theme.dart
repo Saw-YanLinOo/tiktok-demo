@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   AppColors._();
@@ -18,34 +19,46 @@ class AppColors {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get dark => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: const ColorScheme.dark(
-          surface: AppColors.background,
-          primary: AppColors.accent,
-          secondary: AppColors.accentTeal,
+  static ThemeData get dark {
+    // Nunito — rounded, bold sans-serif that matches TikTok's visual weight.
+    final base = GoogleFonts.nunitoTextTheme(ThemeData.dark().textTheme);
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: AppColors.background,
+      colorScheme: const ColorScheme.dark(
+        surface: AppColors.background,
+        primary: AppColors.accent,
+        secondary: AppColors.accentTeal,
+      ),
+      textTheme: base.copyWith(
+        bodyLarge: base.bodyLarge?.copyWith(color: AppColors.white, fontSize: 16),
+        bodyMedium: base.bodyMedium?.copyWith(color: AppColors.white, fontSize: 14),
+        bodySmall: base.bodySmall?.copyWith(color: AppColors.textSecondary, fontSize: 12),
+        titleLarge: base.titleLarge?.copyWith(color: AppColors.white, fontWeight: FontWeight.w800),
+        titleMedium: base.titleMedium?.copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.white,
+        elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        titleTextStyle: GoogleFonts.nunito(
+          color: AppColors.white,
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.background,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          systemOverlayStyle: SystemUiOverlayStyle.light,
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: AppColors.background,
-          selectedItemColor: AppColors.white,
-          unselectedItemColor: AppColors.navInactive,
-          showSelectedLabels: true,
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-        ),
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: AppColors.white),
-          bodyMedium: TextStyle(color: AppColors.white),
-          bodySmall: TextStyle(color: AppColors.textSecondary),
-        ),
-      );
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: AppColors.background,
+        selectedItemColor: AppColors.white,
+        unselectedItemColor: AppColors.navInactive,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+      ),
+    );
+  }
 }

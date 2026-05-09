@@ -63,5 +63,23 @@ class LiveStream {
           gradientStart: 0xFF3D1515,
           gradientEnd: 0xFF260C0C,
         ),
+        LiveStream(
+          id: 'ls6',
+          creator: '@ava.vibes',
+          initials: 'A',
+          title: 'chill beats & chat 🎵',
+          viewerCount: '2.8k',
+          gradientStart: 0xFF1A0A3D,
+          gradientEnd: 0xFF0D0526,
+        ),
+        LiveStream(
+          id: 'ls7',
+          creator: '@street.vibes',
+          initials: 'S',
+          title: 'night market walk 🏮',
+          viewerCount: '6.1k',
+          gradientStart: 0xFF1A2D0A,
+          gradientEnd: 0xFF0D1A05,
+        ),
       ];
 }
