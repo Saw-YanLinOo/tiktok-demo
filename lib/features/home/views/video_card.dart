@@ -28,7 +28,7 @@ class VideoCard extends ConsumerWidget {
 
     final isReady = controller != null && controller.value.isInitialized;
 
-    // Play / pause — only when the controller is ready.
+    // Play / pause based on active slot.
     if (isReady) {
       if (isActive) {
         if (!controller.value.isPlaying) controller.play();
@@ -84,45 +84,17 @@ class _VideoBackground extends StatefulWidget {
   State<_VideoBackground> createState() => _VideoBackgroundState();
 }
 
-class _VideoBackgroundState extends State<_VideoBackground>
-    with SingleTickerProviderStateMixin {
-  // Used only for the brief play-icon flash when the user resumes.
-  late final AnimationController _playFlash = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 150),
-    reverseDuration: const Duration(milliseconds: 350),
-  );
-  late final Animation<double> _playOpacity = CurvedAnimation(
-    parent: _playFlash,
-    curve: Curves.easeIn,
-    reverseCurve: Curves.easeOut,
-  );
-
+class _VideoBackgroundState extends State<_VideoBackground> {
   bool _isPaused = false;
 
   void _onTap() {
     if (widget.controller.value.isPlaying) {
-      // ── Pause ──────────────────────────────────────────────────────────────
       widget.controller.pause();
       setState(() => _isPaused = true);
     } else {
-      // ── Resume ─────────────────────────────────────────────────────────────
       widget.controller.play();
       setState(() => _isPaused = false);
-      // Brief play-arrow flash then fade out.
-      _playFlash
-        ..stop()
-        ..forward().then((_) async {
-          await Future.delayed(const Duration(milliseconds: 400));
-          if (mounted) _playFlash.reverse();
-        });
     }
-  }
-
-  @override
-  void dispose() {
-    _playFlash.dispose();
-    super.dispose();
   }
 
   @override
@@ -163,26 +135,6 @@ class _VideoBackgroundState extends State<_VideoBackground>
               ),
             ),
 
-          // ── Brief play-arrow flash on resume (fades out automatically) ─────
-          if (!_isPaused)
-            Center(
-              child: FadeTransition(
-                opacity: _playOpacity,
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.50),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.pause_rounded,
-                    color: Colors.white,
-                    size: 42,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );

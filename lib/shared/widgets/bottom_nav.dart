@@ -40,7 +40,7 @@ class AppBottomNav extends ConsumerWidget {
               ),
               _CreateButton(),
               _NavItem(
-                icon: Icons.chat_bubble_outline,
+                icon: Icons.chat_bubble,
                 label: 'Messages',
                 index: 3,
                 currentTab: currentTab,
@@ -48,7 +48,7 @@ class AppBottomNav extends ConsumerWidget {
                 onTap: () => ref.read(currentTabProvider.notifier).state = 3,
               ),
               _NavItem(
-                icon: Icons.person_outline,
+                icon: Icons.person,
                 label: 'Me',
                 index: 4,
                 currentTab: currentTab,

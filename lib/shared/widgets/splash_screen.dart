@@ -5,8 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../features/home/models/video_item.dart';
 import '../../features/home/providers/feed_provider.dart';
 import '../../features/home/services/video_download_service.dart';
+import '../../features/chat/views/messages_page.dart';
 import '../../features/home/views/home_page.dart';
 import '../../features/live/views/featured_page.dart';
+import '../../features/profile/views/profile_page.dart';
 import 'bottom_nav.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -336,8 +338,8 @@ class MainShell extends ConsumerWidget {
     HomePage(),
     FeaturedPage(),
     SizedBox(),
-    SizedBox(),
-    SizedBox(),
+    MessagesPage(),
+    ProfilePage(),
   ];
 
   @override
