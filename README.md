@@ -1,17 +1,17 @@
 # Flicko Demo
 
-A TikTok-style short video feed + LiveKit real-time live streaming demo built with Flutter.
+A TikTok-style short video feed with real-time live streaming, built with Flutter and LiveKit.
 
 ---
 
 ## Table of Contents
 
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Secrets Configuration](#secrets-configuration)
-- [Running the App](#running-the-app)
-- [Testing Live Streaming](#testing-live-streaming)
+- [Screenshots](#screenshots)
+- [Installing Dependencies](#installing-dependencies)
+- [Running the Project](#running-the-project)
+- [Testing with a Host and a Viewer](#testing-with-a-host-and-a-viewer)
 - [Replacing LiveKit Credentials](#replacing-livekit-credentials)
+- [Handling Secrets Securely](#handling-secrets-securely)
 - [Project Structure](#project-structure)
 - [Video Preloading Strategy](#video-preloading-strategy)
 - [LiveKit Integration](#livekit-integration)
@@ -19,136 +19,109 @@ A TikTok-style short video feed + LiveKit real-time live streaming demo built wi
 
 ---
 
-## Requirements
+## Screenshots
+
+<p float="left">
+  <img src="screenshots/splash.png" width="18%" />
+  <img src="screenshots/home.png" width="18%" />
+  <img src="screenshots/featured.png" width="18%" />
+  <img src="screenshots/messages.png" width="18%" />
+  <img src="screenshots/profile.png" width="18%" />
+</p>
+
+---
+
+## Installing Dependencies
+
+**Prerequisites**
 
 | Tool | Version |
 |------|---------|
 | Flutter | ≥ 3.22.0 |
 | Dart | ≥ 3.4.0 |
-| Xcode | ≥ 15 (iOS) |
-| Android Studio | ≥ Hedgehog (Android) |
-| A real device | Required for live streaming (camera/mic) |
+| Xcode | ≥ 15 (iOS builds) |
+| Android Studio | ≥ Hedgehog (Android builds) |
+| Real device | Required for the host role (camera + mic) |
 
----
-
-## Installation
-
-**1. Clone the repository**
+**Steps**
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/<your-username>/flicko_demo.git
 cd flicko_demo
-```
 
-**2. Install Flutter dependencies**
-
-```bash
+# 2. Install Flutter packages
 flutter pub get
-```
 
-**3. Set up your `.env` file** *(see [Secrets Configuration](#secrets-configuration) below)*
-
-**4. Verify the setup**
-
-```bash
-flutter analyze   # should print: No issues found
-```
-
----
-
-## Secrets Configuration
-
-API keys are **never hardcoded**. They are loaded at runtime from a `.env` file that is gitignored.
-
-**Step 1** — Copy the template:
-
-```bash
+# 3. Create your .env file from the template
 cp .env.example .env
-```
+# then fill in your LiveKit credentials (see below)
 
-**Step 2** — Fill in your LiveKit credentials in `.env`:
-
-```
-LIVEKIT_URL=wss://your-project.livekit.cloud
-LIVEKIT_API_KEY=your_api_key_here
-LIVEKIT_API_SECRET=your_api_secret_here
-```
-
-> The `.env` file is listed in `.gitignore` and will **never** be committed.  
-> The `.env.example` file (with empty values) is committed as a template for reviewers.
-
-**How it works internally:**
-
-```
-.env  →  flutter_dotenv  →  lib/config/env.dart (Env.livekitUrl, etc.)
-                         →  lib/features/live/services/token_service.dart
+# 4. Confirm no issues
+flutter analyze
 ```
 
 ---
 
-## Running the App
+## Running the Project
 
-**iOS**
-
-```bash
-flutter run -d <ios-device-id>
-```
-
-**Android**
-
-```bash
-flutter run -d <android-device-id>
-```
-
-To list connected devices:
+List connected devices:
 
 ```bash
 flutter devices
 ```
 
-> ⚠️ A **real physical device** is strongly recommended for live streaming.  
-> The iOS Simulator does not support camera/microphone hardware.  
-> The Android Emulator supports the viewer role but not the host role.
+Run on iOS:
+
+```bash
+flutter run -d <ios-device-id>
+```
+
+Run on Android:
+
+```bash
+flutter run -d <android-device-id>
+```
+
+> **Note:** A real physical device is required for the host role. The iOS Simulator has no camera or microphone. The Android Emulator supports the viewer role only.
 
 ---
 
-## Testing Live Streaming
+## Testing with a Host and a Viewer
 
-You need **two devices** (or one device + one simulator for viewer-only testing).
+You need two devices — or one real device (host) and one simulator (viewer-only).
 
-### Step 1 — Host (Phone A)
+### Host — Phone A
 
-1. Open the app → tap **Featured** tab
-2. Tap the red **Go Live** button (bottom-right corner)
-3. In the bottom sheet, tap **Go Live**
-4. Enter a room name (e.g. `test-room`) and your name (e.g. `host-alice`)
-5. Tap **Start Streaming** — the app requests camera & mic permissions
-6. You are now live ✅
+1. Open the app and tap the **Featured** tab.
+2. Tap the red **Go Live** button in the bottom-right corner.
+3. In the sheet, tap **Go Live**.
+4. Enter a room name (used number for correct testing) (e.g. `123678`) and your display name (e.g. `host-alice`).
+5. Tap **Start Streaming** and grant camera and microphone permissions.
+6. You are now live.
 
-### Step 2 — Viewer (Phone B or Simulator)
+### Viewer — Phone B or Simulator
 
-1. Open the app → tap **Featured** tab
-2. Tap the red **Go Live** button
-3. In the bottom sheet, tap **Join as Viewer**
-4. Enter the **exact same room name** as the host (e.g. `test-room`) and your name (e.g. `viewer-bob`)
-5. Tap **Join Stream**
-6. You should see the host's video and hear their audio ✅
+1. Open the app and tap the **Featured** tab.
+2. Tap the red **Go Live** button.
+3. In the sheet, tap **Join as Viewer**.
+4. Enter the **exact same room name** as the host (e.g. `123678`) and your display name (e.g. `viewer-bob`).
+5. Tap **Join Stream**.
+6. The host's video and audio will appear.
 
-### Leaving
+### Leaving the room
 
-- **Host** → tap **End Live** or the ✕ button — camera, mic, Room, and Tracks are all released
-- **Viewer** → tap **Leave Stream** or the ✕ button
+- **Host** — tap **End Live** or the ✕ button. The camera, microphone, Room, and all Tracks are released.
+- **Viewer** — tap **Leave Stream** or the ✕ button.
 
 ---
 
 ## Replacing LiveKit Credentials
 
-To use your own LiveKit account:
-
-1. Sign up for a free account at [livekit.io](https://livekit.io)
-2. Create a new project in the LiveKit Cloud dashboard
-3. Copy your **WebSocket URL**, **API Key**, and **API Secret**
-4. Update your `.env` file:
+1. Sign up for a free account at [livekit.io](https://livekit.io).
+2. Create a project in the LiveKit Cloud dashboard.
+3. Copy your **WebSocket URL**, **API Key**, and **API Secret**.
+4. Open your `.env` file and replace the placeholder values:
 
 ```
 LIVEKIT_URL=wss://<your-project>.livekit.cloud
@@ -156,7 +129,28 @@ LIVEKIT_API_KEY=<your-api-key>
 LIVEKIT_API_SECRET=<your-api-secret>
 ```
 
-No code changes are needed — the app reads these values at startup via `flutter_dotenv`.
+No code changes are needed. The app reads these values at startup via `flutter_dotenv`.
+
+---
+
+## Handling Secrets Securely
+
+API keys and secrets are **never hardcoded** in the codebase.
+
+**How it works:**
+
+```
+.env  (gitignored)
+  └─▶  flutter_dotenv  (loaded in main.dart before runApp)
+         └─▶  lib/config/env.dart  (Env.livekitUrl, Env.livekitApiKey, Env.livekitApiSecret)
+                └─▶  lib/features/live/services/token_service.dart
+```
+
+- `.env` is listed in `.gitignore` and will never be committed.
+- `.env.example` (empty values) is committed as a setup template for reviewers.
+- If any required key is missing at runtime, `Env` throws a descriptive exception rather than silently using a null value.
+
+> **Production note:** Token generation happens on-device in this demo using `dart_jsonwebtoken`. This is acceptable for a take-home demo but must **not** be used in production. In a real app, tokens must be issued by a backend server so the API secret is never shipped to the client.
 
 ---
 
@@ -164,106 +158,96 @@ No code changes are needed — the app reads these values at startup via `flutte
 
 ```
 lib/
-├── main.dart                        # Entry point: loads .env → ProviderScope → app
+├── main.dart                          # Entry point: loads .env → ProviderScope → app
 ├── config/
-│   └── env.dart                     # Typed access to .env values (Env.livekitUrl, etc.)
+│   └── env.dart                       # Typed .env accessors — throws if a key is missing
 │
 ├── features/
-│   ├── home/                        # Short video feed module
+│   ├── home/                          # Short video feed
 │   │   ├── models/
-│   │   │   └── video_item.dart      # Video data model + CDN URL list
+│   │   │   └── video_item.dart        # Video data model
 │   │   ├── providers/
-│   │   │   ├── feed_provider.dart   # feedProvider (list) + currentPageIndexProvider
-│   │   │   └── video_player_provider.dart  # .autoDispose.family — one controller/index
+│   │   │   ├── feed_provider.dart     # Paginated feed state
+│   │   │   └── video_player_provider.dart  # ±2 sliding window of controllers
+│   │   ├── services/
+│   │   │   └── video_download_service.dart  # File-based download + cache
 │   │   └── views/
-│   │       ├── home_page.dart       # PageView.builder, vertical scroll, preload logic
-│   │       └── video_card.dart      # Full-screen card: video + all overlays
+│   │       ├── home_page.dart         # Vertical PageView
+│   │       └── video_card.dart        # Full-screen card with overlays
 │   │
-│   └── live/                        # LiveKit live streaming module
-│       ├── models/
-│       │   ├── live_stream.dart     # Featured stream data model (mock)
-│       │   └── room_config.dart     # RoomConfig + RoomRole enum (host/viewer)
-│       ├── providers/
-│       │   ├── featured_provider.dart  # Mock featured stream list
-│       │   └── room_provider.dart      # LiveKit room lifecycle (connect/publish/dispose)
-│       ├── services/
-│       │   └── token_service.dart   # JWT token generator (demo-only, uses .env keys)
+│   ├── live/                          # LiveKit live streaming
+│   │   ├── models/
+│   │   │   ├── live_stream.dart       # Featured stream model
+│   │   │   └── room_config.dart       # RoomConfig + RoomRole (host / viewer)
+│   │   ├── providers/
+│   │   │   ├── featured_provider.dart # Mock featured list
+│   │   │   └── room_provider.dart     # Room lifecycle: connect → publish → disconnect
+│   │   ├── services/
+│   │   │   └── token_service.dart     # On-device JWT generator (demo only)
+│   │   └── views/
+│   │       ├── featured_page.dart     # Stream grid + Go Live FAB
+│   │       ├── live_page.dart         # Room name + identity form
+│   │       ├── host_view.dart         # Local camera preview + controls
+│   │       └── viewer_view.dart       # Remote VideoTrackRenderer
+│   │
+│   ├── chat/                          # Messages UI
+│   │   └── views/
+│   │       └── messages_page.dart     # Stories row + activity + chat list
+│   │
+│   └── profile/                       # User profile UI
 │       └── views/
-│           ├── featured_page.dart   # Grid + FAB + bottom sheet
-│           ├── live_page.dart       # Room name + identity form
-│           ├── host_view.dart       # Local camera preview + mic toggle + end live
-│           └── viewer_view.dart     # Remote VideoTrackRenderer + leave
+│           └── profile_page.dart      # Avatar, stats, post grid
 │
 └── shared/
     ├── widgets/
-    │   └── bottom_nav.dart          # 5-tab nav bar (Home, Featured, +, Messages, Me)
+    │   ├── bottom_nav.dart            # 5-tab navigation bar
+    │   └── splash_screen.dart         # Splash + MainShell (IndexedStack routing)
     └── theme/
-        └── app_theme.dart           # AppColors + AppTheme (dark, #FE2C55 accent)
+        └── app_theme.dart             # AppColors + AppTheme
 ```
 
 ---
 
 ## Video Preloading Strategy
 
-The home feed uses a `PageView.builder` with vertical scroll. Controllers are managed via Riverpod's `autoDispose.family` provider:
+Videos are downloaded to disk in full before playback begins — no network-URL streaming. This avoids bandwidth contention between the active video and background downloads.
 
-```
-┌─────────────┐
-│  Page N-1   │  ← controller kept alive (preloaded, paused)
-├─────────────┤
-│  Page N     │  ← controller playing
-├─────────────┤
-│  Page N+1   │  ← controller kept alive (preloaded, paused)
-└─────────────┘
-     ... all others: autoDispose releases them
-```
+On every page change, the app initialises the current slot first, then prepares the ±2 surrounding slots concurrently, and disposes anything further away. Background downloads for the next three upcoming videos are fired in parallel so files are ready before the user swipes to them.
 
-**On every page change:**
-1. `currentPageIndexProvider` is updated
-2. `_preload(index)` eagerly reads `videoPlayerProvider(i-1)`, `(i)`, `(i+1)` — this keeps those providers alive
-3. `VideoCard` receives `isActive` — it calls `controller.play()` when active, `controller.pause()` when not
-4. Providers outside the `[N-1, N+1]` window are garbage-collected by Riverpod's `autoDispose`
-
-This means at most 3 `VideoPlayerController` instances exist at any time — no memory leaks, no manual dispose map.
+The splash screen pre-downloads the three smallest videos so the feed opens with zero loading screens.
 
 ---
 
 ## LiveKit Integration
 
-### Architecture
+### Flow
 
 ```
-live_page.dart
-    ↓  RoomConfig(roomName, role, identity)
-room_provider.dart  (StateNotifierProvider<RoomNotifier, RoomState>)
-    ↓  TokenService.generate(config)  →  JWT signed with LIVEKIT_API_KEY + SECRET
-    ↓  Room.connect(LIVEKIT_URL, token)
-    ↓  Host: setCameraEnabled(true) + setMicrophoneEnabled(true)
-    ↓  Viewer: room.addListener → scan remoteParticipants for VideoTrack
-    ↓
-host_view.dart  /  viewer_view.dart
-    ↓  VideoTrackRenderer(track)  — real-time WebRTC video
+FeaturedPage  ──▶  LivePage (room name + role form)
+                       │
+                       ▼
+               RoomNotifier.connect()
+                  ├─ TokenService.generate()  →  signed JWT
+                  ├─ Room.connect(url, token)
+                  ├─ Host: setCameraEnabled + setMicrophoneEnabled
+                  └─ Viewer: listen for remote VideoTrack
+                       │
+              ┌────────┴────────┐
+          HostView           ViewerView
+      (local preview)    (VideoTrackRenderer)
 ```
 
-### Token Generation
+### Resource cleanup
 
-Tokens are generated on-device using `dart_jsonwebtoken` with the API key and secret from `.env`.
-
-> ⚠️ **Security note:** On-device token generation is acceptable for a demo, but **must not be used in production**. In production, tokens should be issued by a backend server so the API secret is never exposed on the client.
-
-### Resource Cleanup
-
-When the user leaves a room, the following are released in order:
+When a user leaves, `RoomNotifier.disconnect()` releases resources in this order:
 
 ```dart
-room.removeListener(...)       // stop watching for track changes
-room.localParticipant?.setCameraEnabled(false)   // implicit on disconnect
-room.localParticipant?.setMicrophoneEnabled(false)
-await room.disconnect()        // graceful WebRTC disconnect
-room.dispose()                 // releases all Tracks and internal state
+room.removeListener(...)
+await room.disconnect()   // graceful WebRTC disconnect; tracks unpublished automatically
+room.dispose()            // releases all Track and internal Room state
 ```
 
-This is handled inside `RoomNotifier.disconnect()` and `RoomNotifier.dispose()`.
+`RoomNotifier.dispose()` calls the same path so resources are freed even if the provider is torn down by navigation.
 
 ---
 
@@ -271,10 +255,9 @@ This is handled inside `RoomNotifier.disconnect()` and `RoomNotifier.dispose()`.
 
 | Area | Limitation |
 |------|-----------|
-| Token generation | On-device only — must be moved server-side for production |
-| Featured grid | Mock data — not fetched from a real API |
-| Video feed | Fixed list of 9 CDN videos — no pagination or API feed |
-| iOS Simulator | Camera/mic not available — host role requires a real device |
-| Permissions | Runtime permission prompts not handled with a custom rationale dialog |
-| Landscape | Portrait-only — landscape orientation is locked |
-| Out of scope | Gifts, danmaku, beauty filters, recording, CDN, auth, payments |
+| Token generation | On-device — must move server-side before any production use |
+| Featured grid | Mock data, not a real API |
+| Video feed | Fixed CDN list with paginated mock; no real backend |
+| iOS Simulator | No camera or mic — host role requires a physical device |
+| Orientation | Portrait-only; landscape is locked |
+| Out of scope | Auth, gifts, danmaku, beauty filters, CDN publishing, payments |
