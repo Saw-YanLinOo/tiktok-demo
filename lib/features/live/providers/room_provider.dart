@@ -51,8 +51,24 @@ class RoomNotifier extends StateNotifier<RoomState> {
       await _room!.connect(Env.livekitUrl, token);
 
       if (config.isHost) {
-        await _room!.localParticipant?.setCameraEnabled(true);
-        await _room!.localParticipant?.setMicrophoneEnabled(true);
+        bool hasTrack = false;
+        try {
+          await _room!.localParticipant?.setCameraEnabled(true);
+          hasTrack = true;
+        } catch (_) {}
+        try {
+          await _room!.localParticipant?.setMicrophoneEnabled(true);
+          hasTrack = true;
+        } catch (_) {}
+
+        if (!hasTrack) {
+          await _room?.disconnect();
+          _room = null;
+          state = RoomError(
+            'No camera or microphone available.\nPlease check your device permissions.',
+          );
+          return;
+        }
       }
 
       state = RoomConnected(room: _room!, config: config);

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,15 +8,23 @@ import 'feed_provider.dart';
 
 /// ±2 sliding window controller manager.
 ///
-/// For each slot:
-///   • Fast-path — file already in [VideoDownloadService] cache (splash
-///                 pre-downloaded it) → file controller, zero network traffic.
-///   • Slow-path — not cached → networkUrl controller starts immediately so
-///                 the video plays from the network right away, then swaps
-///                 silently to the local file once the download completes.
+/// Controller lifecycle for each slot:
 ///
-/// Background downloads for N+1…N+3 are fire-and-forgotten so files are
-/// ready before the user swipes to them.
+///   Fast-path — file already in [VideoDownloadService] cache
+///     → file controller initialised immediately, zero network traffic,
+///       zero loading screen.
+///
+///   Slow-path — file not yet cached
+///     → [VideoDownloadService.download] runs (real-time % shown in
+///       [_TikTokLoader] via [VideoDownloadService.progressOf])
+///     → once the file lands, a file controller is initialised and shown.
+///
+/// No networkUrl controller is ever created. This avoids bandwidth
+/// contention between the stream and the concurrent file download that
+/// caused [networkCtrl.initialize()] to hang indefinitely.
+///
+/// Background downloads for N+1…N+3 are fire-and-forgotten so files
+/// arrive before the user swipes to them.
 class FeedControllerNotifier
     extends StateNotifier<Map<int, CachedVideoPlayerPlusController>> {
   FeedControllerNotifier(this._ref) : super({}) {
@@ -35,8 +45,8 @@ class FeedControllerNotifier
 
   // ── Private ────────────────────────────────────────────────────────────────
 
-  /// Initialises the center slot first (visible video must be live first),
-  /// then the surrounding ±2 slots concurrently.
+  /// Initialises center slot first (visible video must be live before
+  /// surrounding slots), then ±2 concurrently.
   Future<void> _initWindow(int center) async {
     final videos = _ref.read(feedProvider);
     if (videos.isEmpty) return;
@@ -58,58 +68,38 @@ class FeedControllerNotifier
       if (index >= videos.length) return;
       final url = videos[index].videoUrl;
 
-      // ── Fast-path: file already downloaded (splash pre-loaded it) ─────────
+      // ── Fast-path: file already downloaded ──────────────────────────────
       final cached = VideoDownloadService.getCached(url);
       if (cached != null && await cached.exists()) {
-        final ctrl = CachedVideoPlayerPlusController.file(cached);
-        await ctrl.initialize();
-        ctrl.setLooping(true);
-        if (mounted) {
-          state = {...state, index: ctrl};
-        } else {
-          ctrl.dispose();
-        }
+        await _activateFile(index, cached);
         return;
       }
 
-      // ── Slow-path: stream from network, swap to file when ready ───────────
-      final networkCtrl =
-          CachedVideoPlayerPlusController.networkUrl(Uri.parse(url));
-      await networkCtrl.initialize();
-      networkCtrl.setLooping(true);
-
-      if (!mounted) {
-        networkCtrl.dispose();
-        return;
-      }
-      state = {...state, index: networkCtrl};
-
-      // Download full file in background (non-blocking), then swap.
+      // ── Slow-path: wait for full file download, then show video ─────────
+      // Progress (0→1) is reflected in VideoDownloadService.progressOf(url)
+      // and displayed live in _TikTokLoader.
       final file = await VideoDownloadService.download(url);
-      if (file == null || !mounted || !state.containsKey(index)) return;
+      if (file == null || !mounted) return;
 
-      final oldCtrl = state[index];
-      final wasPlaying = oldCtrl?.value.isPlaying ?? false;
-
-      final fileCtrl = CachedVideoPlayerPlusController.file(file);
-      await fileCtrl.initialize();
-      fileCtrl.setLooping(true);
-      if (wasPlaying) fileCtrl.play();
-
-      if (mounted && state.containsKey(index)) {
-        final updated =
-            Map<int, CachedVideoPlayerPlusController>.from(state);
-        updated[index] = fileCtrl;
-        state = updated;
-        oldCtrl?.dispose();
-      } else {
-        fileCtrl.dispose();
-      }
+      await _activateFile(index, file);
     } catch (e) {
       // ignore: avoid_print
       print('[FeedController] Error idx=$index: $e');
     } finally {
       _initializing.remove(index);
+    }
+  }
+
+  /// Initialises a file-based controller for [index] and adds it to state.
+  Future<void> _activateFile(int index, File file) async {
+    final ctrl = CachedVideoPlayerPlusController.file(file);
+    await ctrl.initialize();
+    ctrl.setLooping(true);
+
+    if (mounted && !state.containsKey(index)) {
+      state = {...state, index: ctrl};
+    } else {
+      ctrl.dispose(); // slot was filled by another path while we waited
     }
   }
 
@@ -129,8 +119,7 @@ class FeedControllerNotifier
     final toRemove =
         state.keys.where((i) => (i - center).abs() > 2).toList();
     if (toRemove.isEmpty) return;
-    final updated =
-        Map<int, CachedVideoPlayerPlusController>.from(state);
+    final updated = Map<int, CachedVideoPlayerPlusController>.from(state);
     for (final i in toRemove) {
       updated.remove(i)?.dispose();
     }

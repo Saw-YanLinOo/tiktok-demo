@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../models/video_item.dart';
 import '../providers/video_player_provider.dart';
+import '../services/video_download_service.dart';
 
 class VideoCard extends ConsumerWidget {
   const VideoCard({
@@ -45,7 +46,7 @@ class VideoCard extends ConsumerWidget {
         if (isReady)
           _VideoBackground(controller: controller)
         else
-          const _TikTokLoader(),
+          _TikTokLoader(videoUrl: item.videoUrl),
 
         // ── Gradient overlays (always visible) ──
         const _Gradients(),
@@ -189,14 +190,17 @@ class _VideoBackgroundState extends State<_VideoBackground>
 }
 
 // ─────────────────────────────────────────────
-// TikTok-style loading indicator
+// Loading indicator with real-time download progress.
 //
-// • Dark gradient background (not pure black — feels like a dimmed frame)
-// • Thin 2.5 px accent bar sliding left → right at the very top of the card
-// • Centered accent spinner for clear visual feedback
+// • Dark gradient background
+// • Circular progress ring:
+//     - determinate (shows %) when download is in progress
+//     - indeterminate (spinning) when waiting for network / initialising
+// • Percentage label inside the ring when progress is known
 // ─────────────────────────────────────────────
 class _TikTokLoader extends StatelessWidget {
-  const _TikTokLoader();
+  const _TikTokLoader({required this.videoUrl});
+  final String videoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -214,27 +218,40 @@ class _TikTokLoader extends StatelessWidget {
           ),
         ),
 
-        // Thin sliding accent bar at the top edge
-        // LinearProgressIndicator with value: null is self-animating (indeterminate)
-        const Positioned(
-          top: 0, left: 0, right: 0,
-          child: LinearProgressIndicator(
-            value: null,
-            minHeight: 2.5,
-            backgroundColor: Colors.transparent,
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
-          ),
-        ),
-
-        // Centered spinner — clear "loading" signal
-        const Center(
-          child: SizedBox(
-            width: 38,
-            height: 38,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
-            ),
+        // Circular progress with real download percentage
+        Center(
+          child: ValueListenableBuilder<double>(
+            valueListenable: VideoDownloadService.progressOf(videoUrl),
+            builder: (context, progress, child) {
+              // Show determinate ring only when download is actively progressing
+              final hasProgress = progress > 0.0 && progress < 1.0;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: CircularProgressIndicator(
+                      value: hasProgress ? progress : null,
+                      strokeWidth: 3,
+                      backgroundColor: Colors.white12,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        AppColors.accent,
+                      ),
+                    ),
+                  ),
+                  if (hasProgress)
+                    Text(
+                      '${(progress * 100).toInt()}%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ],

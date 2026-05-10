@@ -37,24 +37,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final videos = ref.watch(feedProvider);
     final currentIndex = ref.watch(currentPageIndexProvider);
-
-    // ── Pause / resume when switching tabs ──────────────────────────────────
-    // IndexedStack keeps HomePage mounted even when another tab is active,
-    // so the video would keep playing. We listen to the active tab and
-    // pause/resume the current video accordingly.
-    ref.listen<int>(currentTabProvider, (prev, next) {
-      final controllers = ref.read(feedControllerProvider);
-      final activeIndex = ref.read(currentPageIndexProvider);
-      final controller = controllers[activeIndex];
-      if (controller == null || !controller.value.isInitialized) return;
-
-      if (next != 0) {
-        // Left Home tab → pause
-        controller.pause();
-      }
-      // Returning to Home: leave video paused — user taps to resume.
-    });
-    // ────────────────────────────────────────────────────────────────────────
+    final currentTab = ref.watch(currentTabProvider);
 
     return PageView.builder(
       controller: _pageController,
@@ -67,7 +50,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           key: ValueKey(videos[index].id),
           item: videos[index],
           index: index,
-          isActive: index == currentIndex,
+          isActive: index == currentIndex && currentTab == 0,
         );
       },
     );
