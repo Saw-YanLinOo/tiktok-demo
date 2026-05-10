@@ -1,91 +1,127 @@
-import 'dart:async';
-
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/video_preload_service.dart';
+import '../services/video_download_service.dart';
 import 'feed_provider.dart';
 
-/// TikTok-style ±2 preload window — 5 controllers max in memory at once:
+/// ±2 sliding window controller manager.
 ///
-///   N-2  chunk cached, controller alive   (instant back-scroll)
-///   N-1  chunk cached, controller alive   (instant back-scroll)
-///   N    PLAYING
-///   N+1  fully initialised, paused        (zero-wait forward swipe)
-///   N+2  metadata + chunk downloading     (ready before user arrives)
+/// For each slot:
+///   • Fast-path — file already in [VideoDownloadService] cache (splash
+///                 pre-downloaded it) → file controller, zero network traffic.
+///   • Slow-path — not cached → networkUrl controller starts immediately so
+///                 the video plays from the network right away, then swaps
+///                 silently to the local file once the download completes.
 ///
-/// Two-phase preload per slot:
-///   Phase 1 – HEAD request  → file size, content-type (≈ 0 bytes, warms DNS)
-///   Phase 2 – Range request → first 3 MB ≈ first 3-5 s of video
-///
-/// Only the first chunk is stored — never the full file — keeping disk light.
+/// Background downloads for N+1…N+3 are fire-and-forgotten so files are
+/// ready before the user swipes to them.
 class FeedControllerNotifier
     extends StateNotifier<Map<int, CachedVideoPlayerPlusController>> {
   FeedControllerNotifier(this._ref) : super({}) {
-    // Eagerly warm up indices 0, 1, 2 before the user sees the first frame.
-    _initRange(0);
+    _initWindow(0);
   }
 
   final Ref _ref;
-  final Set<int> _loading = {};
+  final Set<int> _initializing = {};
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
   Future<void> onPageChanged(int index) async {
+    _checkPagination(index);
     _disposeOutOfRange(index);
-    await _initRange(index);
+    _initWindow(index);
+    _backgroundDownload(index);
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
 
-  Future<void> _initRange(int center) async {
+  /// Initialises the center slot first (visible video must be live first),
+  /// then the surrounding ±2 slots concurrently.
+  Future<void> _initWindow(int center) async {
     final videos = _ref.read(feedProvider);
+    if (videos.isEmpty) return;
 
-    final window = [
-      center - 2,
-      center - 1,
-      center,
-      center + 1,
-      center + 2,
-    ].where((i) => i >= 0 && i < videos.length).toList();
+    await _initController(center);
 
-    // Phase 1 — fire HEAD requests for every slot in the window concurrently.
-    // These are essentially free (no body download) and warm DNS + TCP.
-    for (final i in window) {
-      unawaited(VideoPreloadService.fetchMetadata(videos[i].videoUrl));
-    }
-
-    // Phase 2 — fetch first chunk + initialise controllers concurrently.
-    await Future.wait(window.map(_initController));
+    final surrounding = [center - 2, center - 1, center + 1, center + 2]
+        .where((i) => i >= 0 && i < videos.length)
+        .toList();
+    await Future.wait(surrounding.map(_initController), eagerError: false);
   }
 
   Future<void> _initController(int index) async {
-    if (state.containsKey(index) || _loading.contains(index)) return;
-    _loading.add(index);
+    if (state.containsKey(index) || _initializing.contains(index)) return;
+    _initializing.add(index);
 
     try {
-      final url = _ref.read(feedProvider)[index].videoUrl;
+      final videos = _ref.read(feedProvider);
+      if (index >= videos.length) return;
+      final url = videos[index].videoUrl;
 
-      // Phase 2: download only the first 3 MB (≈ first 3-5 s) via Range request.
-      // Runs in a background Isolate — main thread never blocked.
-      // For faststart MP4s (moov atom at front) → immediately playable.
-      // Returns null if the server doesn't support ranges or download fails.
-      final chunkFile = await VideoPreloadService.fetchFirstChunk(url);
+      // ── Fast-path: file already downloaded (splash pre-loaded it) ─────────
+      final cached = VideoDownloadService.getCached(url);
+      if (cached != null && await cached.exists()) {
+        final ctrl = CachedVideoPlayerPlusController.file(cached);
+        await ctrl.initialize();
+        ctrl.setLooping(true);
+        if (mounted) {
+          state = {...state, index: ctrl};
+        } else {
+          ctrl.dispose();
+        }
+        return;
+      }
 
-      final controller = chunkFile != null
-          // Chunk on disk → zero network latency on first play
-          ? CachedVideoPlayerPlusController.file(chunkFile)
-          // Fallback → stream directly; package caches progressively
-          : CachedVideoPlayerPlusController.networkUrl(Uri.parse(url));
+      // ── Slow-path: stream from network, swap to file when ready ───────────
+      final networkCtrl =
+          CachedVideoPlayerPlusController.networkUrl(Uri.parse(url));
+      await networkCtrl.initialize();
+      networkCtrl.setLooping(true);
 
-      await controller.initialize();
-      controller.setLooping(true);
+      if (!mounted) {
+        networkCtrl.dispose();
+        return;
+      }
+      state = {...state, index: networkCtrl};
 
-      if (mounted) state = {...state, index: controller};
-    } catch (_) {
-      // Silent fail — VideoCard shows TikTok loader, no crash.
+      // Download full file in background (non-blocking), then swap.
+      final file = await VideoDownloadService.download(url);
+      if (file == null || !mounted || !state.containsKey(index)) return;
+
+      final oldCtrl = state[index];
+      final wasPlaying = oldCtrl?.value.isPlaying ?? false;
+
+      final fileCtrl = CachedVideoPlayerPlusController.file(file);
+      await fileCtrl.initialize();
+      fileCtrl.setLooping(true);
+      if (wasPlaying) fileCtrl.play();
+
+      if (mounted && state.containsKey(index)) {
+        final updated =
+            Map<int, CachedVideoPlayerPlusController>.from(state);
+        updated[index] = fileCtrl;
+        state = updated;
+        oldCtrl?.dispose();
+      } else {
+        fileCtrl.dispose();
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[FeedController] Error idx=$index: $e');
     } finally {
-      _loading.remove(index);
+      _initializing.remove(index);
+    }
+  }
+
+  /// Fire-and-forget downloads for upcoming slots so files land before
+  /// the user swipes to them.
+  void _backgroundDownload(int center) {
+    final videos = _ref.read(feedProvider);
+    for (int delta = 1; delta <= 3; delta++) {
+      final i = center + delta;
+      if (i < videos.length) {
+        VideoDownloadService.download(videos[i].videoUrl);
+      }
     }
   }
 
@@ -93,7 +129,6 @@ class FeedControllerNotifier
     final toRemove =
         state.keys.where((i) => (i - center).abs() > 2).toList();
     if (toRemove.isEmpty) return;
-
     final updated =
         Map<int, CachedVideoPlayerPlusController>.from(state);
     for (final i in toRemove) {
@@ -102,8 +137,16 @@ class FeedControllerNotifier
     state = updated;
   }
 
+  void _checkPagination(int index) {
+    final videos = _ref.read(feedProvider);
+    if (index >= videos.length - 3) {
+      _ref.read(feedProvider.notifier).fetchNextPage();
+    }
+  }
+
   @override
   void dispose() {
+    VideoDownloadService.clear();
     for (final c in state.values) {
       c.dispose();
     }

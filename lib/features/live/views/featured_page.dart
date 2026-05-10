@@ -5,7 +5,6 @@ import '../../../shared/theme/app_theme.dart';
 import '../models/live_stream.dart';
 import '../models/room_config.dart'; // used by _LiveBottomSheet → LivePage
 import '../providers/featured_provider.dart';
-import 'live_detail_page.dart';
 import 'live_page.dart';
 
 class FeaturedPage extends ConsumerWidget {
@@ -169,7 +168,7 @@ class _FeaturedCard extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => LiveDetailPage(stream: stream),
+          builder: (_) => const LivePage(role: RoomRole.viewer),
         ));
       },
       child: Container(

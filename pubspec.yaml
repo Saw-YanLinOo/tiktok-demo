@@ -33,6 +33,15 @@ dependencies:
   # Font — Nunito (matches TikTok's rounded bold sans-serif style)
   google_fonts: ^6.2.1
 
+  # Advanced HTTP client — timeout, cancellation, retry support
+  dio: ^5.7.0
+
+  # PriorityQueue for download task ordering
+  collection: ^1.18.0
+
+  # MD5 hash for deterministic chunk filenames
+  crypto: ^3.0.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -19,29 +19,27 @@ class LivePage extends ConsumerStatefulWidget {
 }
 
 class _LivePageState extends ConsumerState<LivePage> {
+  late final TextEditingController _roomCodeController;
   final _identityController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  late String _roomCode;
-
   bool get _isHost => widget.role == RoomRole.host;
 
-  /// Generates a random room code in the format XXX-XXX (e.g. 847-203).
+  /// Generates a random 6-digit numeric room code (e.g. 847203).
   static String _generateRoomCode() {
     final rng = Random();
-    final a = rng.nextInt(900) + 100; // 100–999
-    final b = rng.nextInt(900) + 100; // 100–999
-    return '$a-$b';
+    return (rng.nextInt(900000) + 100000).toString(); // 100000–999999
   }
 
   @override
   void initState() {
     super.initState();
-    _roomCode = _generateRoomCode();
+    _roomCodeController = TextEditingController(text: _generateRoomCode());
   }
 
   @override
   void dispose() {
+    _roomCodeController.dispose();
     _identityController.dispose();
     super.dispose();
   }
@@ -50,7 +48,7 @@ class _LivePageState extends ConsumerState<LivePage> {
     if (!_formKey.currentState!.validate()) return;
 
     final config = RoomConfig(
-      roomName: _roomCode,
+      roomName: _roomCodeController.text.trim(),
       role: widget.role,
       identity: _identityController.text.trim(),
     );
@@ -129,13 +127,20 @@ class _LivePageState extends ConsumerState<LivePage> {
                 ),
                 const SizedBox(height: 32),
 
-                // Room Code — auto-generated, read-only
+                // Room Code — pre-filled with a random code, freely editable
                 _FieldLabel('Room Code'),
                 const SizedBox(height: 8),
-                _RoomCodeDisplay(
-                  code: _roomCode,
-                  onRefresh: () =>
-                      setState(() => _roomCode = _generateRoomCode()),
+                _TextField(
+                  controller: _roomCodeController,
+                  hint: 'e.g. 847-203',
+                  suffix: IconButton(
+                    icon: const Icon(Icons.refresh_rounded,
+                        color: AppColors.accent, size: 20),
+                    tooltip: 'Generate new code',
+                    onPressed: () => _roomCodeController.text = _generateRoomCode(),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Room code required' : null,
                 ),
                 const SizedBox(height: 20),
 
@@ -215,91 +220,10 @@ class _LivePageState extends ConsumerState<LivePage> {
                   ),
                 ),
 
-                const SizedBox(height: 16),
-
-                // LiveKit note
-                Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF00C853),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Powered by LiveKit · real-time WebRTC',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Read-only room code display with refresh icon
-// ─────────────────────────────────────────────
-class _RoomCodeDisplay extends StatelessWidget {
-  const _RoomCodeDisplay({required this.code, required this.onRefresh});
-
-  final String code;
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.tag_rounded, color: AppColors.textSecondary, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              code,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 4,
-              ),
-            ),
-          ),
-          // Regenerate button
-          GestureDetector(
-            onTap: onRefresh,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.refresh_rounded,
-                color: AppColors.accent,
-                size: 18,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -323,11 +247,13 @@ class _TextField extends StatelessWidget {
   const _TextField({
     required this.controller,
     required this.hint,
+    this.suffix,
     this.validator,
   });
 
   final TextEditingController controller;
   final String hint;
+  final Widget? suffix;
   final String? Function(String?)? validator;
 
   @override
@@ -339,6 +265,7 @@ class _TextField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        suffixIcon: suffix,
         filled: true,
         fillColor: AppColors.card,
         border: OutlineInputBorder(

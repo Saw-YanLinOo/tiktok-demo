@@ -10,7 +10,7 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
 
     <application
-        android:label="flicko_demo"
+        android:label="TikDemo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
